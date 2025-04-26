@@ -14,47 +14,81 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-# Set page config
-st.set_page_config(page_title="Insurance Premium Prediction Demo", layout="centered")
+# Set wide layout
+st.set_page_config(page_title="Insurance Premium Dashboard", layout="wide")
 
-st.title('🏠 Auto Insurance Premium Prediction - Demo App')
+st.title("🚗 Auto Insurance Premium Prediction App")
 st.markdown("""
-This app allows you to upload an insurance dataset, explore basic statistics, and visualize important trends related to premium prediction.
+This interactive app allows you to:
+- Upload and explore insurance datasets
+- Visualize distributions and correlations
+- Compare features using boxplots
 ---
 """)
 
-# Upload data
-uploaded_file = st.file_uploader("Upload your insurance CSV file", type=["csv"])
+# File upload
+uploaded_file = st.file_uploader("📂 Upload a CSV file", type=["csv"])
 
 if uploaded_file is not None:
+    # Read data
     data = pd.read_csv(uploaded_file)
 
+    # --- Section: Data Preview ---
     st.header("📄 Data Preview")
     st.dataframe(data.head())
 
+    # --- Section: Summary Stats ---
     st.header("📊 Summary Statistics")
-    st.write(data.describe())
+    st.dataframe(data.describe())
 
+    # --- Section: Correlation Heatmap ---
     st.header("🧮 Correlation Heatmap")
-    numeric_cols = data.select_dtypes(include=['int64', 'float64']).columns
+    numeric_cols = data.select_dtypes(include=["float64", "int64"]).columns
 
     if len(numeric_cols) >= 2:
-        fig_corr, ax_corr = plt.subplots(figsize=(8,6))
-        sns.heatmap(data[numeric_cols].corr(), annot=True, cmap="coolwarm", ax=ax_corr)
+        corr = data[numeric_cols].corr()
+        fig_corr, ax_corr = plt.subplots(figsize=(12, 10))
+        sns.heatmap(
+            corr, annot=True, fmt=".2f", cmap="coolwarm",
+            annot_kws={"size": 8}, cbar_kws={"shrink": 0.8}
+        )
+        plt.xticks(rotation=45, ha="right")
+        plt.yticks(rotation=0)
         st.pyplot(fig_corr)
     else:
-        st.write("Not enough numeric columns for correlation analysis.")
+        st.info("Not enough numeric features to compute correlations.")
 
-    st.header("📈 Visualizations")
+    # --- Section: Histogram ---
+    st.header("📈 Histogram Viewer")
+    hist_col = st.selectbox("Select a numeric column to plot:", numeric_cols)
 
-    # Dropdown for column selection
-    col_to_plot = st.selectbox("Choose a column to plot:", numeric_cols)
-
-    if col_to_plot:
-        fig_hist, ax_hist = plt.subplots(figsize=(8,4))
-        sns.histplot(data[col_to_plot], kde=True, ax=ax_hist)
-        ax_hist.set_title(f'Distribution of {col_to_plot}')
+    if hist_col:
+        fig_hist, ax_hist = plt.subplots(figsize=(8, 4))
+        sns.histplot(data[hist_col], kde=True, ax=ax_hist)
+        ax_hist.set_title(f'Distribution of {hist_col}')
         st.pyplot(fig_hist)
 
+    # --- Section: Box Plot ---
+    st.header("📦 Box Plot Comparison")
+
+    categorical_cols = data.select_dtypes(include=["object", "category", "bool"]).columns
+
+    if numeric_cols.any() and categorical_cols.any():
+        y_feature = st.selectbox("Select numeric feature (Y-axis):", numeric_cols, index=0)
+        x_feature = st.selectbox("Select categorical feature (X-axis):", categorical_cols, index=0)
+
+        fig_box, ax_box = plt.subplots(figsize=(10, 5))
+        sns.boxplot(x=data[x_feature], y=data[y_feature], ax=ax_box)
+        ax_box.set_title(f'{y_feature} by {x_feature}')
+        ax_box.set_xlabel(x_feature)
+        ax_box.set_ylabel(y_feature)
+        plt.xticks(rotation=45, ha="right")
+        st.pyplot(fig_box)
+    else:
+        st.warning("Not enough categorical/numeric features for a boxplot.")
+
     st.markdown("---")
-    st.caption("Developed by Prisha Bandyopadhyay for DSCI 441.")
+    st.caption("Made by Prisha Bandyopadhyay | DSCI 441 Project")
+
+else:
+    st.info("Please upload a CSV file to get started.")
