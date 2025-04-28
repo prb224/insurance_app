@@ -7,88 +7,89 @@ Original file is located at
     https://colab.research.google.com/drive/1mClaeVk-uHRmdCkhimrbLPw7okOJK_Hc
 """
 
-# app.py
-
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
+from sklearn.metrics import mean_squared_error
+import numpy as np
 
-# Set wide layout
-st.set_page_config(page_title="Insurance Premium Dashboard", layout="wide")
+# Set page config
+st.set_page_config(page_title="Insurance Premium Prediction Demo", layout="centered")
 
-st.title("🚗 Auto Insurance Premium Prediction App")
+st.title('🚗 Auto Insurance Premium Prediction - Demo App')
 st.markdown("""
-This interactive app allows you to:
-- Upload and explore insurance datasets
-- Visualize distributions and correlations
-- Compare features using boxplots
+This app allows you to upload an insurance dataset, explore basic statistics, visualize trends, and build a simple predictive model.
 ---
 """)
 
-# File upload
-uploaded_file = st.file_uploader("📂 Upload a CSV file", type=["csv"])
+# Upload data
+uploaded_file = st.file_uploader("Upload your insurance CSV file", type=["csv"])
 
 if uploaded_file is not None:
-    # Read data
     data = pd.read_csv(uploaded_file)
 
-    # --- Section: Data Preview ---
     st.header("📄 Data Preview")
     st.dataframe(data.head())
 
-    # --- Section: Summary Stats ---
     st.header("📊 Summary Statistics")
-    st.dataframe(data.describe())
+    st.write(data.describe())
 
-    # --- Section: Correlation Heatmap ---
     st.header("🧮 Correlation Heatmap")
-    numeric_cols = data.select_dtypes(include=["float64", "int64"]).columns
+    numeric_cols = data.select_dtypes(include=['int64', 'float64']).columns
 
     if len(numeric_cols) >= 2:
-        corr = data[numeric_cols].corr()
-        fig_corr, ax_corr = plt.subplots(figsize=(12, 10))
-        sns.heatmap(
-            corr, annot=True, fmt=".2f", cmap="coolwarm",
-            annot_kws={"size": 8}, cbar_kws={"shrink": 0.8}
-        )
-        plt.xticks(rotation=45, ha="right")
-        plt.yticks(rotation=0)
+        fig_corr, ax_corr = plt.subplots(figsize=(8,6))
+        sns.heatmap(data[numeric_cols].corr(), annot=True, cmap="coolwarm", ax=ax_corr)
         st.pyplot(fig_corr)
     else:
-        st.info("Not enough numeric features to compute correlations.")
+        st.write("Not enough numeric columns for correlation analysis.")
 
-    # --- Section: Histogram ---
-    st.header("📈 Histogram Viewer")
-    hist_col = st.selectbox("Select a numeric column to plot:", numeric_cols)
+    st.header("📈 Visualizations")
 
-    if hist_col:
-        fig_hist, ax_hist = plt.subplots(figsize=(8, 4))
-        sns.histplot(data[hist_col], kde=True, ax=ax_hist)
-        ax_hist.set_title(f'Distribution of {hist_col}')
+    # Dropdown for column selection
+    col_to_plot = st.selectbox("Choose a column to plot:", numeric_cols)
+
+    if col_to_plot:
+        fig_hist, ax_hist = plt.subplots(figsize=(8,4))
+        sns.histplot(data[col_to_plot], kde=True, ax=ax_hist)
+        ax_hist.set_title(f'Distribution of {col_to_plot}')
         st.pyplot(fig_hist)
 
-    # --- Section: Box Plot ---
-    st.header("📦 Box Plot Comparison")
-
-    categorical_cols = data.select_dtypes(include=["object", "category", "bool"]).columns
-
-    if numeric_cols.any() and categorical_cols.any():
-        y_feature = st.selectbox("Select numeric feature (Y-axis):", numeric_cols, index=0)
-        x_feature = st.selectbox("Select categorical feature (X-axis):", categorical_cols, index=0)
-
-        fig_box, ax_box = plt.subplots(figsize=(10, 5))
-        sns.boxplot(x=data[x_feature], y=data[y_feature], ax=ax_box)
-        ax_box.set_title(f'{y_feature} by {x_feature}')
-        ax_box.set_xlabel(x_feature)
-        ax_box.set_ylabel(y_feature)
-        plt.xticks(rotation=45, ha="right")
-        st.pyplot(fig_box)
-    else:
-        st.warning("Not enough categorical/numeric features for a boxplot.")
-
     st.markdown("---")
-    st.caption("Made by Prisha Bandyopadhyay | DSCI 441 Project")
 
-else:
-    st.info("Please upload a CSV file to get started.")
+    # --- Real-time modeling ---
+    st.header("🤖 Real-time Modeling")
+
+    if 'Premium_Amount' not in data.columns:
+        st.error("Dataset must have a 'Premium_Amount' column as the target variable.")
+    else:
+        features = data.drop(columns=['Premium_Amount'])
+        features = pd.get_dummies(features, drop_first=True)  # Handle categorical variables
+        target = data['Premium_Amount']
+
+        # Train-test split
+        X_train, X_test, y_train, y_test = train_test_split(features, target, test_size=0.3, random_state=42)
+
+        # Model selection dropdown
+        model_choice = st.selectbox("Choose a model:", ["Gradient Boosting", "Random Forest"])
+
+        # Initialize model based on selection
+        if model_choice == "Gradient Boosting":
+            model = GradientBoostingRegressor(random_state=42)
+        elif model_choice == "Random Forest":
+            model = RandomForestRegressor(random_state=42)
+
+        # Train the model
+        model.fit(X_train, y_train)
+
+        # Predictions and RMSE
+        preds = model.predict(X_test)
+        rmse = np.sqrt(mean_squared_error(y_test, preds))
+
+        st.success(f"Model trained! Test RMSE for {model_choice}: ${rmse:.2f}")
+
+    st.caption("Developed by Prisha Bandyopadhyay for DSCI 441.")
+
